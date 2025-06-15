@@ -31,7 +31,7 @@ def loocv_tab():
         # --- Vorbereitung
         
         uploaded_file.seek(0)
-        raw_inputs, raw_outputs, _ = load_csv_experiment_data(uploaded_file, output_column=output_col, columns_config=COLUMNS_CONFIG)
+        raw_inputs, raw_outputs, _ = load_csv_experiment_data(data_or_file=st.session_state['data'], output_column=output_col, columns_config=COLUMNS_CONFIG)
         scaled_x, scaled_y = prepare_training_data(raw_inputs, raw_outputs, bounds)
         train_x, train_y = prepare_training_tensors(scaled_x, scaled_y)
         input_dim = train_x.shape[1]

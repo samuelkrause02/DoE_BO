@@ -1,24 +1,37 @@
 import pandas as pd
 import numpy as np
 import torch
+
 def load_csv_experiment_data(
-    csv_file,
+    data_or_file,
     columns_config,
     loi=True,
     input_columns=None,
     output_column=None
 ):
     """
-    Load experiment data from a CSV file.
-
-    - If `input_columns` is None, automatically use all numeric columns except the output and meta-data.
-    - If `output_column` is None, it is selected from columns_config based on LOI.
+    Load experiment data from DataFrame or CSV file.
+    
+    Args:
+        data_or_file: pandas DataFrame OR path to CSV file
+        columns_config: Dictionary mapping target keys to column names
+        loi: Whether to use LOI-based yield (affects auto-detection of output column)
+        input_columns: List of column names to use as inputs (None for auto-detection)
+        output_column: Name of output column (None for auto-detection)
+    
+    Returns:
+        tuple: (inputs_array, output_array, dataframe)
     """
-    print(f"Reading experiment data from: {csv_file}")
-
-    #df = pd.read_csv(csv_file, sep=None, engine="python")  
-    df = pd.read_csv(csv_file, sep=';')
-
+    # Check if input is DataFrame or file path
+    if isinstance(data_or_file, pd.DataFrame):
+        print(f"[DEBUG] Processing existing DataFrame with shape: {data_or_file.shape}")
+        df = data_or_file.copy()
+    else:
+        print(f"Reading experiment data from: {data_or_file}")
+        df = pd.read_csv(data_or_file, sep=';')
+    
+    print(f"[DEBUG] Columns: {list(df.columns)}")
+    
     # Auto-detect output column if needed
     if output_column is None:
         target_key = 'yield_loi' if loi else 'yield_mass'
@@ -26,7 +39,7 @@ def load_csv_experiment_data(
         print(f"[DEBUG] Auto-detected output column: {output_column}")
 
     if output_column not in df.columns:
-        raise ValueError(f"Output column '{output_column}' not found in CSV.")
+        raise ValueError(f"Output column '{output_column}' not found in data.")
 
     # Drop NaN rows for output column
     print(f"[DEBUG] Dropping NaN rows for output column '{output_column}'")
@@ -49,7 +62,6 @@ def load_csv_experiment_data(
     print(f"Loaded {inputs.shape[0]} experiments with {inputs.shape[1]} parameters.")
     return inputs, output, df
 
-
 def load_bounds_csv(csv_file):
     """
     Load parameter bounds from a CSV file.
@@ -63,7 +75,6 @@ def load_bounds_csv(csv_file):
         print(f"Param {i+1}: [{b[0]}, {b[1]}]")
     return bounds
 
-
 def scale_inputs(raw_inputs, bounds):
     """
     Scale raw input data to the [0, 1] range using the provided bounds.
@@ -71,13 +82,12 @@ def scale_inputs(raw_inputs, bounds):
     bounds_arr = np.array(bounds, dtype=float)
     mins = bounds_arr[:, 0].reshape(1, -1)
     maxs = bounds_arr[:, 1].reshape(1, -1)
-    
+        
     if raw_inputs.shape[1] != bounds_arr.shape[0]:
         raise ValueError(f"Mismatch: {raw_inputs.shape[1]} input features vs {bounds_arr.shape[0]} bounds.")
-    
+        
     scaled = (raw_inputs - mins) / (maxs - mins)
     return scaled
-
 
 def prepare_training_data(raw_inputs, raw_outputs, bounds):
     """
@@ -88,6 +98,9 @@ def prepare_training_data(raw_inputs, raw_outputs, bounds):
     return scaled_x, scaled_y
 
 def prepare_training_tensors(scaled_x, scaled_y):
+    """
+    Convert scaled data to PyTorch tensors.
+    """
     train_x = torch.from_numpy(scaled_x).double()
     train_y = torch.from_numpy(scaled_y).double().unsqueeze(-1)
     print(f"Training data shapes: X={train_x.shape}, Y={train_y.shape}")

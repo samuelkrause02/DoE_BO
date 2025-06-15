@@ -45,7 +45,7 @@ def loocv_and_training_section(uploaded_file, bounds, output_col_name, MODEL_CON
             # Load and prepare data
             uploaded_file.seek(0)
             raw_inputs, raw_outputs, df = load_csv_experiment_data(
-                uploaded_file, columns_config=COLUMNS_CONFIG, output_column=output_col_name
+                data_or_file= st.session_state['data'], columns_config=COLUMNS_CONFIG, output_column=output_col_name
             )
             
             # Manual removal
