@@ -7,6 +7,7 @@ from botorch.test_functions import Hartmann
 import matplotlib.pyplot as plt
 import tempfile
 import os
+from bo_utils.bo_optimization import greedy_gibbon_batch
 torch.set_default_dtype(torch.double)
 
 def run_bo_test(
@@ -30,7 +31,6 @@ def run_bo_test(
         # Build and fit model
         model, likelihood = build_gp_model(
             train_x, train_y,
-            input_dim=6,
             config=model_config
         )
         fit_model(model)
@@ -46,6 +46,16 @@ def run_bo_test(
                 batch_size=batch_size,
                 x_baseline=train_x,
             )
+        elif acquisition_type == "qGIBBON":
+            new_x = greedy_gibbon_batch(
+                model=model,
+                bounds=bounds,
+                batch_size=batch_size,
+                num_restarts=10,
+                raw_samples=256,
+                inequality_constraints=None
+            )
+            
         elif acquisition_type == "posterior_mean":
             new_x = optimize_posterior_mean(
                 model=model,

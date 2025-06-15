@@ -4,7 +4,7 @@ EXCEL_FILE = "orthogonal_samplesI.xlsx"
 DATA_SHEET = "Experiments"
 BOUNDS_SHEET = "Bounds"
 LOI = True
-PSD = True
+PSD = False
 
 COLUMNS_CONFIG = {
     "temperature": "Temperature [°C]",
@@ -16,7 +16,7 @@ COLUMNS_CONFIG = {
 }
 
 BATCH_SIZE = 3
-INPUT_DIM = 5
+INPUT_DIM = 4
 
 COLUMNS_MAP = {
     'temperature': 2,
@@ -64,20 +64,17 @@ if PSD == True:
 
 
 MODEL_CONFIG = {
-    "name": "RBF",
-    "kernel_type": "RBF",  # oder "Matern"
-    "kernel_nu": 2.5,
+    "kernel": {"type": "RBF"},
     "ard": True,
-    "lengthscale_prior": "LogNormal",  # oder "Gamma", "SmoothedBox"
-    "lengthscale_prior_params": (2.0, 0.5),
-
-    # LogNormal für Noise
-    "noise_prior_type": "LogNormal",
-    "mean_noise": 0.01,     # entspricht z. B. 1% auf normalisierter Skala
-    "scale_log": 0.5,        # Streuung im Log-Raum
-    "mean_noise": 0.0016,
-    "scale_log": 0.25,
-    "noise_prior_type": "LogNormal",
-    "noise_constraint_type": "interval",
-    "noise_constraint_bounds": (0.0004, 0.04),
+    "lengthscale_prior": {
+        "type": "lognormal",
+        "loc": 2.0,
+        "scale": 0.5
+    },
+    "outputscale": {"use": True, "fixed": False},
+    "noise_prior": {
+        "type": "lognormal",
+        "loc": -6.13,  # log(0.0016) 
+        "scale": 0.25
+    }
 }

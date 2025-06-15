@@ -1,0 +1,16 @@
+streamlit
+pandas
+torch
+botorch
+scikit-learn
+matplotlib
+networkx
+scipy
+numpy
+matplotlib
+gpytorch
+experiment_design
+seaborn
+datetime
+plotly
+properscoring

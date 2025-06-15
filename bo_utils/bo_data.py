@@ -1,9 +1,6 @@
 import pandas as pd
 import numpy as np
-
-import pandas as pd
-import numpy as np
-
+import torch
 def load_csv_experiment_data(
     csv_file,
     columns_config,
@@ -89,3 +86,9 @@ def prepare_training_data(raw_inputs, raw_outputs, bounds):
     scaled_x = scale_inputs(raw_inputs, bounds)
     scaled_y = raw_outputs
     return scaled_x, scaled_y
+
+def prepare_training_tensors(scaled_x, scaled_y):
+    train_x = torch.from_numpy(scaled_x).double()
+    train_y = torch.from_numpy(scaled_y).double().unsqueeze(-1)
+    print(f"Training data shapes: X={train_x.shape}, Y={train_y.shape}")
+    return train_x, train_y

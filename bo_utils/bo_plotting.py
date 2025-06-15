@@ -36,8 +36,8 @@ def plot_posterior_slices(model, train_x, bounds, param_names=None):
 
         # Rescale output (if you want %)
         y_mean = mean * 100
-        err_upper = (mean + std) * 100
-        err_lower = (mean - std) * 100
+        err_upper = (mean + std*1.96) * 100
+        err_lower = (mean - std*1.96) * 100
 
         # Plot
         plt.figure(figsize=(8, 5))
@@ -275,8 +275,8 @@ def plot_posterior_slices_streamlit(model, train_x, bounds, param_names=None):
             train_x_orig = train_x[:, k].numpy() * (max_val - min_val) + min_val
 
             y_mean = mean * 100
-            err_upper = (mean + std) * 100
-            err_lower = (mean - std) * 100
+            err_upper = (mean + std*2) * 100
+            err_lower = (mean - std*2) * 100
 
             fig, ax = plt.subplots(figsize=(8, 5))
             ax.plot(x_orig, y_mean, 'b-', label='Predicted Mean')
@@ -292,78 +292,80 @@ def plot_posterior_slices_streamlit(model, train_x, bounds, param_names=None):
             st.pyplot(fig)
 
 
-import streamlit as st
-import torch
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
+def plot_interactive_slice(train_x, train_y, bounds, param_names, model_config):
+    import streamlit as st
+    import torch
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from bo_utils.bo_model import build_gp_model, fit_model
 
-def plot_interactive_slice(model, train_x, bounds, param_names):
     st.subheader("Interactive Posterior Slice")
 
+    total_points = train_x.shape[0]
     input_dim = train_x.shape[1]
 
-    # 1. Zielparameter auswählen
-    target_param = st.selectbox("Parameter to analyze (x-axis):", param_names, key="selected_param")
+    # 1. Select number of training points
+    n_points = st.slider("Number of training points", min_value=3, max_value=total_points, value=total_points, step=1)
 
+    # 2. Select target dimension
+    target_param = st.selectbox("Parameter to analyze (x-axis):", param_names, key="selected_param")
     sweep_idx = param_names.index(target_param)
 
-    # 2. Slider für alle anderen Parameter
+    # 3. Fixed values for remaining dimensions
     fixed_values = []
 
-    st.markdown("### Fix other parameters:")
+    with st.expander("Fix other parameters", expanded=False):
+        for i, name in enumerate(param_names):
+            lb, ub = bounds[i]
+            slider_key = f"fix_{name}"
+            if i != sweep_idx:
+                if slider_key not in st.session_state:
+                    st.session_state[slider_key] = (lb + ub) / 2
+                val = st.slider(
+                    f"{name} ({lb:.2f}–{ub:.2f})",
+                    min_value=float(lb),
+                    max_value=float(ub),
+                    value=st.session_state[slider_key],
+                    step=(ub - lb) / 100,
+                    key=slider_key
+                )
+                fixed_values.append((val - lb) / (ub - lb))  # normalize
+            else:
+                fixed_values.append(None)
 
-    for i, name in enumerate(param_names):
-        min_val, max_val = bounds[i]
-        slider_key = f"fix_{name}"
+    # 4. Subset training data and train model
+    x_subset = train_x[:n_points]
+    y_subset = train_y[:n_points]
 
-        if name != target_param:
-            # Init default if not set
-            if slider_key not in st.session_state:
-                st.session_state[slider_key] = (min_val + max_val) / 2
+    model, _ = build_gp_model(x_subset, y_subset, model_config)
+    fit_model(model)
 
-            val = st.slider(
-                f"{name} ({min_val:.2f}–{max_val:.2f})",
-                min_value=float(min_val),
-                max_value=float(max_val),
-                value=st.session_state[slider_key],
-                step=(max_val - min_val) / 100,
-                key=slider_key
-            )
-            # Normalize
-            fixed_values.append((val - min_val) / (max_val - min_val))
-        else:
-            fixed_values.append(None)
-
-    # 3. Build tensor from fixed + grid
+    # 5. Build grid for prediction
     grid = torch.linspace(0, 1, 100)
     X = []
     for g in grid:
-        row_vals = [
-            g.item() if v is None else v
-            for v in fixed_values
-        ]
+        row_vals = [g.item() if v is None else v for v in fixed_values]
         X.append(torch.tensor(row_vals, dtype=torch.float32))
     X_tensor = torch.stack(X)
 
-    # 4. GP prediction
+    # 6. GP prediction
     posterior = model.posterior(X_tensor)
     mean = posterior.mean.detach().numpy().flatten()
     std = posterior.variance.sqrt().detach().numpy().flatten()
 
-    min_val, max_val = bounds[sweep_idx]
-    x_orig = grid.numpy() * (max_val - min_val) + min_val
+    lb, ub = bounds[sweep_idx]
+    x_orig = grid.numpy() * (ub - lb) + lb
     y_mean = mean * 100
-    y_upper = (mean + std) * 100
-    y_lower = (mean - std) * 100
+    y_upper = (mean + std*2) * 100
+    y_lower = (mean - std*2) * 100
 
-    # 5. Plot
+    # 7. Plot
     fig, ax = plt.subplots(figsize=(8, 5))
     ax.plot(x_orig, y_mean, 'b-', label='Predicted Mean')
     ax.fill_between(x_orig, y_upper, y_lower, alpha=0.3, label='Uncertainty')
     ax.set_xlabel(f"{target_param} (original scale)")
     ax.set_ylabel("Predicted Yield [%]")
-    ax.set_title(f"Effect of {target_param} (others fixed)")
+    ax.set_title(f"Effect of {target_param} (trained on {n_points} pts)")
     ax.legend()
     st.pyplot(fig)
 
@@ -414,6 +416,7 @@ def plot_2d_bo_contours_streamlit(
     posterior = model.posterior(X_full)
     mean = posterior.mean.detach().numpy()
     std = posterior.variance.sqrt().detach().numpy()
+
 
     # --- 5. Acquisition ---
     if acquisition_func_factory is None:

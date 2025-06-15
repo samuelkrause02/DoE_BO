@@ -1,8 +1,6 @@
 import pandas as pd
 from config import COLUMNS_MAP
-
-import pandas as pd
-from config import LOI  # direkt aus Config einlesen, damit es automatisch funktioniert
+from config import LOI 
 
 def export_excel_to_csv(
     excel_file,
@@ -43,6 +41,10 @@ def export_excel_to_csv(
 
     # Select and clean data
     df_export = df[cols].dropna(subset=[columns_config[target_key]])
+
+    # Round first 2 columns to whole numbers
+    df_export.iloc[:, :2] = df_export.iloc[:, :2].round(0)
+    
 
     # Use original names from columns_config
     new_column_names = [columns_config[key] for key in input_keys] + [columns_config[target_key]]
